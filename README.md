@@ -4,7 +4,7 @@
 
 A self-contained HTML presentation framework. One file. No build step. No npm. Open `index.html` in any browser and you're presenting.
 
-[Quick demo (template) →](https://willscott-v2.github.io/html-slides/) &nbsp;·&nbsp; [Production example →](https://slides.searchinfluence.com/ai-seo/)
+[Quick demo (template) →](https://willscott-v2.github.io/html-slides/) &nbsp;·&nbsp; [Production example: AI SEO talk →](https://slides.searchinfluence.com/ai-seo/)
 
 Built for conference talks where you want version control, full design control, and a presenter mode that actually works — without a 40-step setup.
 
@@ -176,7 +176,7 @@ I give conference talks a few times a year. Google Slides doesn't version-contro
 
 This started as a single-file experiment before a talk and has been through six presentations now. The BroadcastChannel two-window sync was the feature that made it worth sharing — it works without any server infrastructure, just two browser windows on the same machine.
 
-If you use it for a talk, I'd like to hear how it went.
+If you use it for a talk, I'd like to hear how it went. — [Will Scott, AI SEO practitioner](https://www.searchinfluence.com/will-scott-ai-seo-expert/)
 
 ---
 
@@ -195,4 +195,4 @@ html-slides/
 
 ---
 
-MIT License — Copyright (c) 2026 Search Influence
+MIT License — Copyright (c) 2026 [Search Influence](https://searchinfluence.com)
