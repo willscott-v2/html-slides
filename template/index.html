@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Talk Title Here</title>
+
+  <!--
+    ════════════════════════════════════════════════════════════
+    HTML SLIDES FRAMEWORK
+    Zero dependencies. One file. Works offline.
+
+    HOW TO USE:
+    1. Edit the CSS brand variables below (colors, fonts)
+    2. Add/remove <section class="slide"> elements in the body
+    3. Update the slideNotes[] array in the <script> block
+    4. Open index.html in any browser
+
+    KEYBOARD SHORTCUTS:
+    Arrow keys / Space / Page Up/Down  — navigate slides
+    Home / End                         — first / last slide
+    N                                  — toggle presenter overlay
+    Hamburger icon (top right)         — slide navigator
+
+    PRESENTER SETUP (two-window sync):
+    Main window: open index.html normally
+    Presenter window: open index.html?presenter=1
+
+    Advance in either window — both stay in sync via BroadcastChannel.
+    Change 'my-talk-2026' in the script to a unique name per talk.
+    ════════════════════════════════════════════════════════════
+  -->
+
+  <!--
+    Optional: replace with local fonts or a different Google Font.
+    The font-family fallback stack works without this link.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /*
+      ── GLOBAL SCALE KNOB ──────────────────────────────────────
+      Bump font-size to scale the entire deck for larger venues.
+      16px = laptop, 20px = medium room, 26px = big stage.
+    */
+    html { font-size: 20px; }
+    html, body { height: 100%; }
+
+    /*
+      ── BRAND VARIABLES ────────────────────────────────────────
+      Change these to match your own colors and fonts.
+      All component colors reference these variables.
+    */
+    :root {
+      /* Primary palette */
+      --color-primary:   #3b82f6;   /* blue  — accent, headings */
+      --color-secondary: #10b981;   /* green — callouts, success */
+      --color-warning:   #f59e0b;   /* amber — highlights */
+      --color-danger:    #ef4444;   /* red   — before / contrast */
+
+      /* Background & text */
+      --bg:      #1a1a2e;
+      --text:    rgba(255, 255, 255, 0.95);
+      --muted:   rgba(255, 255, 255, 0.60);
+      --accent:  var(--color-primary);
+
+      /* Navigation rail */
+      --nav-width:  320px;
+      --nav-rail:   56px;
+      --nav-bg:     rgba(26, 26, 46, 0.90);
+      --nav-panel:  rgba(26, 26, 46, 0.98);
+      --nav-border: rgba(59, 130, 246, 0.35);
+
+      /* Slide spacing — fluid, clamps for small screens */
+      --slide-pad-x:    clamp(36px, 6vw, 128px);
+      --slide-pad-y:    clamp(28px, 6vh,  84px);
+      --footer-gutter:  44px;
+
+      /* Font stack */
+      --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.2;
+      overflow: hidden; /* scroll-snap handles scrolling */
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       NAVIGATION RAIL (hamburger + slide drawer)
+    ════════════════════════════════════════════════════════ */
+
+    .nav-rail {
+      position: fixed; top: 0; right: 0; height: 100vh;
+      width: var(--nav-rail); z-index: 50;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 14px;
+      background: var(--nav-bg);
+      border-left: 1px solid var(--nav-border);
+    }
+    .nav-toggle {
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid rgba(59, 130, 246, 0.55);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .nav-toggle:hover { background: rgba(255,255,255,0.12); border-color: rgba(59,130,246,0.88); }
+    .nav-toggle:active { transform: translateY(1px); }
+
+    /* Animated hamburger → X icon */
+    .nav-toggle-icon { width: 18px; height: 12px; position: relative; }
+    .nav-toggle-icon span {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: rgba(255,255,255,0.92); border-radius: 999px;
+      transition: transform 0.18s, top 0.18s, opacity 0.18s;
+    }
+    .nav-toggle-icon span:nth-child(1) { top: 0; }
+    .nav-toggle-icon span:nth-child(2) { top: 5px; }
+    .nav-toggle-icon span:nth-child(3) { top: 10px; }
+    body.nav-open .nav-toggle-icon span:nth-child(1) { top: 5px; transform: rotate(45deg); }
+    body.nav-open .nav-toggle-icon span:nth-child(2) { opacity: 0; }
+    body.nav-open .nav-toggle-icon span:nth-child(3) { top: 5px; transform: rotate(-45deg); }
+
+    /* Scrim darkens the main content when nav is open */
+    .nav-scrim {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 49;
+    }
+    body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+
+    /* Slide list drawer */
+    .nav-drawer {
+      position: fixed; top: 0; right: 0; height: 100vh;
+      width: var(--nav-width);
+      transform: translateX(var(--nav-width));
+      transition: transform 0.22s; z-index: 60;
+      background: var(--nav-panel);
+      border-left: 1px solid var(--nav-border);
+      padding: 18px 16px 16px;
+      display: flex; flex-direction: column;
+    }
+    body.nav-open .nav-drawer { transform: translateX(0); }
+    .nav-title {
+      display: flex; align-items: center; gap: 10px;
+      padding-right: calc(var(--nav-rail) + 4px); padding-left: 6px; margin-bottom: 14px;
+    }
+    .nav-title .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); }
+    .nav-title strong { font-size: 0.95rem; letter-spacing: 0.02em; color: rgba(255,255,255,0.92); }
+    .nav-list {
+      list-style: none; margin: 0;
+      padding: 8px calc(var(--nav-rail) + 8px) 8px 8px;
+      overflow: auto;
+      border-top: 1px solid rgba(255,255,255,0.10);
+    }
+    .nav-item { margin: 6px 0; }
+    .nav-link {
+      width: 100%; text-align: left;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.92);
+      padding: 10px 12px; border-radius: 12px; cursor: pointer;
+      font-size: 0.95rem; line-height: 1.25;
+      display: flex; gap: 10px; align-items: baseline;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    }
+    .nav-link:hover { border-color: rgba(59,130,246,0.85); background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+    .nav-link .idx { width: 2.2em; flex: 0 0 auto; color: rgba(255,255,255,0.75); font-variant-numeric: tabular-nums; }
+    .nav-link .label { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-link[aria-current="true"] { border-color: rgba(59,130,246,0.95); background: rgba(59,130,246,0.16); }
+
+    @media (max-width: 720px) {
+      :root { --nav-width: min(86vw, 340px); }
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       SLIDE CONTAINER & BASE SLIDE
+    ════════════════════════════════════════════════════════ */
+
+    /*
+      scroll-snap-type: y mandatory means the container snaps to
+      each slide's top edge — no partial slides visible.
+    */
+    .slide-container {
+      width: 100%; height: 100vh;
+      overflow-y: scroll; scroll-snap-type: y mandatory;
+      scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: none;
+      padding-right: var(--nav-rail); /* leave room for the rail */
+    }
+
+    /*
+      Each .slide fills exactly one viewport.
+      Default layout: content pinned to the bottom-left.
+      Override with layout modifier classes below.
+    */
+    .slide {
+      width: 100%; height: 100vh; min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: var(--slide-pad-y) var(--slide-pad-x) calc(var(--slide-pad-y) + var(--footer-gutter));
+      scroll-snap-align: start; scroll-snap-stop: always;
+      position: relative; overflow: hidden; isolation: isolate;
+      background: var(--bg);
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       SLIDE LAYOUT MODIFIERS
+       Apply to the <section class="slide"> element
+    ════════════════════════════════════════════════════════ */
+
+    /* Content in the vertical center, horizontally centered */
+    .slide-center {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    /* Content in the vertical center, left-aligned */
+    .slide-center-left { justify-content: center; }
+
+    /* Content pinned to the bottom (default, but explicit) */
+    .slide-bottom { justify-content: flex-end; }
+
+
+    /* ════════════════════════════════════════════════════════
+       BACKGROUNDS
+    ════════════════════════════════════════════════════════ */
+
+    /*
+      Full-bleed background image layer.
+      Usage: <div class="slide-bg" style="background-image: url('./assets/photo.jpg')"></div>
+      Place as first child inside .slide.
+    */
+    .slide-bg {
+      position: absolute; inset: 0; z-index: -2;
+      background-size: cover; background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    /*
+      Semi-transparent glass panel for text readability over photos.
+      Usage: wrap your text block in <div class="text-panel">
+    */
+    .text-panel {
+      background: rgba(10, 10, 30, 0.55);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-radius: 18px;
+      padding: clamp(20px, 3vw, 38px);
+    }
+    .text-panel > * + * { margin-top: clamp(12px, 2vh, 22px); }
+
+
+    /* ════════════════════════════════════════════════════════
+       SLIDE CHROME (number + footer)
+    ════════════════════════════════════════════════════════ */
+
+    .slide-number {
+      position: absolute; right: calc(var(--nav-rail) + 18px); bottom: 14px;
+      font-size: 13px; color: rgba(255,255,255,0.45);
+    }
+    .slide-footer {
+      position: absolute; left: var(--slide-pad-x); bottom: 16px;
+      font-size: 13px; color: rgba(255,255,255,0.35);
+      letter-spacing: 0.18em; text-transform: uppercase;
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       TYPOGRAPHY SCALE
+       Use rem-based clamps so everything scales with html font-size.
+    ════════════════════════════════════════════════════════ */
+
+    /* Hero-sized headline — use for single-message slides */
+    .big-text {
+      font-weight: 800;
+      font-size: clamp(2.8rem, 6vw, 5rem);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: #fff;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+    }
+    /* Slightly smaller for longer headlines */
+    .big-text.smaller { font-size: clamp(2rem, 4.5vw, 3.6rem); }
+
+    /* Section headings */
+    .medium-text {
+      font-weight: 800;
+      font-size: clamp(1.6rem, 3vw, 2.6rem);
+      line-height: 1.12;
+      color: #fff;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+    }
+
+    /* Body copy, bullets, table cells */
+    .body-text {
+      font-size: clamp(1.05rem, 1.7vw, 1.5rem);
+      line-height: 1.5;
+      color: rgba(255,255,255,0.92);
+      text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+    }
+
+    /* Pull quote / emphasis block */
+    .quote-text {
+      font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+      line-height: 1.55;
+      color: rgba(255,255,255,0.88);
+      font-style: italic;
+      text-shadow: 0 1px 12px rgba(0,0,0,0.5);
+      max-width: 720px;
+    }
+
+    /* Utility color modifiers */
+    .accent-text  { color: var(--color-primary); }
+    .green-accent { color: var(--color-secondary); }
+    .amber-accent { color: var(--color-warning); }
+    .muted-text   { color: var(--muted); }
+
+
+    /* ════════════════════════════════════════════════════════
+       CONTENT WIDTH CONTAINERS
+    ════════════════════════════════════════════════════════ */
+
+    /* Constrain text blocks to readable line lengths */
+    .content-block { max-width: 720px; }
+    .content-block > * + * { margin-top: clamp(12px, 2vh, 22px); }
+    .content-wide  { max-width: 960px; }
+    .content-full  { width: 100%; }
+
+
+    /* ════════════════════════════════════════════════════════
+       GLASS COMPONENTS
+    ════════════════════════════════════════════════════════ */
+
+    /* Card with frosted-glass effect */
+    .glass-card {
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      padding: clamp(18px, 3vw, 32px);
+    }
+
+    /* Inline pill label */
+    .glass-pill {
+      display: inline-block;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: clamp(0.85rem, 1.2vw, 1rem);
+      color: rgba(255,255,255,0.8);
+    }
+
+    /* Ordered list inside a glass card */
+    .glass-card ol { margin-left: 22px; }
+    .glass-card li {
+      margin: 10px 0;
+      color: rgba(255,255,255,0.9);
+      font-size: clamp(1.1rem, 1.7vw, 1.55rem);
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       GRID LAYOUTS
+    ════════════════════════════════════════════════════════ */
+
+    .grid-3 {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: clamp(14px, 2vw, 22px); width: 100%;
+    }
+    .grid-2 {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: clamp(14px, 2vw, 22px); width: 100%;
+    }
+    @media (max-width: 900px) {
+      .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       STAT BOXES — large number + label
+    ════════════════════════════════════════════════════════ */
+
+    .stat-row {
+      display: flex; gap: clamp(14px, 2vw, 24px); flex-wrap: wrap;
+    }
+    .stat-box {
+      flex: 1 1 0; min-width: 140px; text-align: center;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: clamp(16px, 2.5vw, 28px);
+    }
+    .stat-num {
+      font-weight: 800;
+      font-size: clamp(2rem, 3.5vw, 3rem);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: clamp(1rem, 1.5vw, 1.3rem);
+      color: rgba(255,255,255,0.7);
+      margin-top: 8px; line-height: 1.3;
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       COMPARISON TABLE
+    ════════════════════════════════════════════════════════ */
+
+    .compare-table {
+      width: 100%; border-collapse: collapse;
+      border-radius: 16px; overflow: hidden;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .compare-table th {
+      text-align: left; padding: 16px 20px;
+      background: rgba(59,130,246,0.30);
+      font-weight: 800; font-size: clamp(1rem, 1.5vw, 1.3rem);
+      color: #fff; letter-spacing: 0.02em;
+    }
+    .compare-table td {
+      padding: 14px 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: clamp(1rem, 1.4vw, 1.25rem);
+      color: rgba(255,255,255,0.9); vertical-align: top;
+    }
+    .compare-table .sub { font-size: 0.85em; color: rgba(255,255,255,0.55); }
+    /* Green check / grey X in table cells */
+    .check { color: var(--color-secondary); font-weight: 800; }
+    .cross { color: rgba(255,255,255,0.35); }
+
+
+    /* ════════════════════════════════════════════════════════
+       CALLOUT BAR — left-border accent strip
+    ════════════════════════════════════════════════════════ */
+
+    .callout-bar {
+      border-left: 6px solid var(--color-warning);
+      background: rgba(245, 158, 11, 0.12);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-radius: 12px;
+      padding: clamp(14px, 2vw, 22px);
+    }
+    .callout-bar.green  { border-left-color: var(--color-secondary); background: rgba(16,185,129,0.12); }
+    .callout-bar.blue   { border-left-color: var(--color-primary);   background: rgba(59,130,246,0.12); }
+    .callout-bar.danger { border-left-color: var(--color-danger);     background: rgba(239,68,68,0.12);  }
+
+
+    /* ════════════════════════════════════════════════════════
+       PILLAR / FEATURE CARDS (used in grid layouts)
+    ════════════════════════════════════════════════════════ */
+
+    .pillar-name {
+      font-weight: 800;
+      font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+      color: #fff;
+    }
+    .pillar-desc {
+      font-size: clamp(1rem, 1.4vw, 1.3rem);
+      color: rgba(255,255,255,0.75);
+      margin-top: 8px; line-height: 1.4;
+    }
+    .pillar-accent {
+      font-weight: 800;
+      font-size: clamp(1rem, 1.3vw, 1.2rem);
+      color: var(--color-primary);
+      margin-top: 12px;
+      border-top: 1px solid rgba(59,130,246,0.25);
+      padding-top: 10px;
+    }
+
+    /* Large letter / number accent inside a card */
+    .pillar-letter {
+      font-weight: 800;
+      font-size: clamp(2.5rem, 4vw, 3.8rem);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+
+    /* ════════════════════════════════════════════════════════
+       PRESENTER NOTES (toggled with N key)
+       Visible only in presenter mode; hidden in main view.
+    ════════════════════════════════════════════════════════ */
+
+    /* These are revealed via JS when ?presenter=1 or N is pressed */
+    .notes-toggle { display: none; }
+    .notes-panel  { display: none; }
+    body.presenter .notes-toggle { display: inline-flex; }
+    .notes-toggle {
+      position: fixed; left: 16px; bottom: 14px; z-index: 70;
+      border-radius: 999px; border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92);
+      padding: 10px 14px; font-weight: 800; font-size: 13px; cursor: pointer;
+    }
+    .notes-panel {
+      position: fixed; left: 16px; right: calc(var(--nav-rail) + 16px);
+      bottom: 56px; z-index: 70; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(10, 10, 30, 0.96);
+      padding: 12px 14px; max-height: 34vh; overflow: auto;
+    }
+    .notes-meta { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 8px; }
+    .notes-text { font-size: 14px; line-height: 1.4; color: rgba(255,255,255,0.90); white-space: pre-wrap; }
+
+  </style>
+</head>
+<body>
+
+  <!-- Navigation rail (right edge) — JS populates the slide list -->
+  <div class="nav-rail" aria-hidden="true">
+    <button class="nav-toggle" type="button" aria-label="Open slide navigation" aria-expanded="false" aria-controls="slide-nav">
+      <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+  </div>
+  <div class="nav-scrim" aria-hidden="true"></div>
+  <aside class="nav-drawer" id="slide-nav" aria-label="Slide navigation">
+    <div class="nav-title"><span class="dot" aria-hidden="true"></span><strong>Slides</strong></div>
+    <ul class="nav-list" id="nav-list"></ul>
+  </aside>
+
+  <!-- Presenter notes toggle (visible in presenter mode only) -->
+  <button class="notes-toggle" type="button" aria-label="Toggle presenter notes (N)">Notes (N)</button>
+  <aside class="notes-panel" aria-label="Presenter notes">
+    <div class="notes-meta" id="notes-meta">Slide notes</div>
+    <div class="notes-text" id="notes-text">Open with <strong>?presenter=1</strong> or press <strong>N</strong>.</div>
+  </aside>
+
+  <div class="slide-container" tabindex="0" aria-label="Presentation slides">
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SLIDE 1 — TITLE
+         Layout: slide-center (content centered, text centered)
+         data-title appears in the nav drawer and presenter view
+    ═══════════════════════════════════════════════════════ -->
+    <section class="slide slide-center" data-title="Title">
+
+      <!--
+        Full-bleed background image.
+        Replace url() with your own image path.
+        Remove this div entirely for a solid-color background.
+      -->
+      <div class="slide-bg" style="background-image: url('./assets/title-bg.jpg');"></div>
+
+      <!-- Text panel floats over the background -->
+      <div class="content-block text-panel" style="text-align: center; align-self: center;">
+        <p class="big-text">YOUR TALK<br>TITLE HERE</p>
+        <p class="medium-text" style="margin-top: 16px; color: rgba(255,255,255,0.80);">One-line framing of what this is about.</p>
+        <p class="glass-pill" style="margin-top: 24px;">Your Name &bull; Your Event</p>
+      </div>
+
+      <div class="slide-footer">Your Name — Your Event 2026</div>
+      <div class="slide-number"></div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SLIDE 2 — STAT LAYOUT
+         Layout: slide-bottom (content pinned to bottom)
+         Use this for: big numbers, key data points
+    ═══════════════════════════════════════════════════════ -->
+    <section class="slide slide-bottom" data-title="Zero Dependencies">
+
+      <div class="slide-bg" style="background-image: url('./assets/stat-bg.jpg');"></div>
+
+      <div class="content-full text-panel">
+        <p class="big-text smaller">Zero dependencies. One file.</p>
+        <p class="body-text" style="margin-top: 12px; max-width: 760px;">Open <code style="background: rgba(255,255,255,0.1); border-radius: 6px; padding: 2px 8px; font-size: 0.9em;">index.html</code> in any browser. Works offline. No build step, no Node, no framework.</p>
+
+        <div class="stat-row" style="margin-top: clamp(18px, 3vh, 32px);">
+          <div class="stat-box">
+            <div class="stat-num">1</div>
+            <div class="stat-label">HTML file<br>contains everything</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num">0</div>
+            <div class="stat-label">npm dependencies<br>to install</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num">∞</div>
+            <div class="stat-label">works offline,<br>on any device</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">Your Name — Your Event 2026</div>
+      <div class="slide-number"></div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SLIDE 3 — COMPARISON TABLE
+         Layout: slide-center (vertically and horizontally centered)
+         Use this for: feature comparisons, before/after tables
+    ═══════════════════════════════════════════════════════ -->
+    <section class="slide slide-center" data-title="vs. Other Tools">
+
+      <div class="slide-bg" style="background-image: url('./assets/compare-bg.jpg');"></div>
+
+      <div class="content-wide text-panel" style="align-self: center;">
+        <p class="big-text smaller" style="margin-bottom: clamp(20px, 3vh, 36px);">How it compares</p>
+
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th style="width: 34%;">Feature</th>
+              <th style="width: 22%;">HTML Slides</th>
+              <th style="width: 22%;">Reveal.js</th>
+              <th style="width: 22%;">Google Slides</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Zero dependencies</strong><br><span class="sub">No npm, no build step</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗ (browser only)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Works offline</strong><br><span class="sub">Local file, no server needed</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td><strong>Two-window sync</strong><br><span class="sub">BroadcastChannel presenter mode</span></td>
+              <td><span class="check">✓ built-in</span></td>
+              <td><span class="cross">Plugin required</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td><strong>Version controlled</strong><br><span class="sub">Plain text, diff-able in git</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗ (binary format)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Custom layout per slide</strong><br><span class="sub">Full CSS control</span></td>
+              <td><span class="check">✓ total control</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">Limited</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="slide-footer">Your Name — Your Event 2026</div>
+      <div class="slide-number"></div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SLIDE 4 — BEFORE / AFTER
+         Layout: slide-center with grid-2
+         Use this for: contrasts, transformations, comparisons
+    ═══════════════════════════════════════════════════════ -->
+    <section class="slide slide-center" data-title="Before / After">
+
+      <div class="slide-bg" style="background-image: url('./assets/before-after-bg.jpg');"></div>
+
+      <div class="content-wide text-panel" style="align-self: center; background: rgba(10,10,30,0.75);">
+        <p class="big-text smaller" style="margin-bottom: clamp(20px, 3vh, 32px);">Same problem. Different approach.</p>
+
+        <div class="grid-2" style="align-items: stretch;">
+
+          <!-- Before -->
+          <div style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); border-radius: 12px; padding: clamp(16px, 2.5vw, 28px);">
+            <p style="font-weight: 800; color: rgba(239,100,100,1); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; margin-bottom: 12px;">Before — Google Slides</p>
+            <p class="body-text" style="color: rgba(255,255,255,0.75);">Drag-and-drop layout. Binary .pptx file in git. Lost 30 minutes realigning boxes. Fonts look different on the venue projector. No notes without a second device.</p>
+            <p style="margin-top: 14px; font-size: 0.9em; color: rgba(239,100,100,0.8); font-style: italic;">Can't diff it. Can't fork it. Can't own it fully.</p>
+          </div>
+
+          <!-- After -->
+          <div style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); border-radius: 12px; padding: clamp(16px, 2.5vw, 28px);">
+            <p style="font-weight: 800; color: rgba(100,200,140,1); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; margin-bottom: 12px;">After — HTML Slides</p>
+            <p class="body-text" style="color: rgba(255,255,255,0.75);">Edit in any text editor. Commit to git. Scale the whole deck with one CSS variable. Open the presenter window with <code style="background: rgba(255,255,255,0.1); border-radius: 4px; padding: 1px 6px;">?presenter=1</code>. Notes sync automatically.</p>
+            <p style="margin-top: 14px; font-size: 0.9em; color: rgba(100,200,140,0.8); font-style: italic;">Version-controlled. Forkable. Works offline.</p>
+          </div>
+
+        </div>
+
+        <div class="callout-bar green" style="margin-top: 16px; text-align: center;">
+          <p class="body-text" style="text-shadow: none;">Built for conference talks. Exports to PPTX when the venue requires it.</p>
+        </div>
+      </div>
+
+      <div class="slide-footer">Your Name — Your Event 2026</div>
+      <div class="slide-number"></div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SLIDE 5 — RESOURCES / CLOSING
+         Layout: slide-center
+         Use this for: links, QR codes, contact info, CTAs
+    ═══════════════════════════════════════════════════════ -->
+    <section class="slide slide-center" data-title="Get Started">
+
+      <div class="slide-bg" style="background-image: url('./assets/closing-bg.jpg');"></div>
+
+      <div class="content-block text-panel" style="text-align: center; align-self: center; max-width: 960px; background: rgba(10,10,30,0.60);">
+        <p class="big-text smaller">Get the framework</p>
+
+        <div class="stat-row" style="margin-top: clamp(20px, 3vh, 36px); justify-content: center;">
+
+          <!-- Replace src with your actual QR code image -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 14px;">
+            <div style="width: clamp(140px, 16vw, 200px); height: clamp(140px, 16vw, 200px); background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 12px;">
+              <!-- QR code placeholder — replace with <img src="./assets/qr-repo.png"> -->
+              <p style="color: #555; font-size: 0.7rem; text-align: center; line-height: 1.4;">QR code<br>placeholder<br>(add your image)</p>
+            </div>
+            <p style="font-weight: 800; color: #fff; font-size: clamp(0.9rem, 1.3vw, 1.15rem);">github.com/you/html-slides</p>
+          </div>
+
+        </div>
+
+        <div class="callout-bar blue" style="margin-top: clamp(20px, 3vh, 32px); text-align: center;">
+          <p class="body-text" style="text-shadow: none;"><strong>Quick start:</strong> clone → edit <code style="background: rgba(255,255,255,0.15); border-radius: 4px; padding: 1px 6px;">index.html</code> → open in browser</p>
+        </div>
+
+        <p class="muted-text" style="margin-top: clamp(16px, 2.5vh, 28px); font-size: clamp(0.9rem, 1.2vw, 1.1rem);">
+          Your Name &bull; your@email.com &bull; @yourhandle
+        </p>
+      </div>
+
+      <div class="slide-footer">Your Name — Your Event 2026</div>
+      <div class="slide-number"></div>
+    </section>
+
+
+  </div><!-- end .slide-container -->
+
+  <script>
+    (() => {
+      /*
+        ════════════════════════════════════════════════════════════
+        HTML SLIDES JAVASCRIPT ENGINE
+
+        What this does:
+        - Reads all .slide elements and auto-generates slug IDs
+        - Handles keyboard navigation (arrows, space, home/end)
+        - Syncs two windows via BroadcastChannel
+        - Manages the slide navigator drawer
+        - Drives the presenter overlay (N key or ?presenter=1)
+        - Updates the URL hash on each slide change (#slug)
+        ════════════════════════════════════════════════════════════
+      */
+
+      const container = document.querySelector('.slide-container');
+      if (!container) return;
+      const slides = Array.from(container.querySelectorAll('.slide'));
+      if (slides.length < 1) return;
+
+      const body = document.body;
+      const url  = new URL(window.location.href);
+
+      // ── Presenter mode ──────────────────────────────────────
+      // Two ways to activate: open with ?presenter=1, or press N.
+      // Presenter mode hides the slide view and shows a full-screen
+      // notes overlay with: slide title, notes text, "Next:" preview.
+      let presenterMode = url.searchParams.get('presenter') === '1';
+      let presenterEl   = null; // the overlay DOM element
+
+      if (presenterMode) {
+        // On load in presenter mode, immediately hide slides and show overlay
+        document.querySelectorAll('.nav-rail,.nav-drawer,.nav-scrim,.notes-toggle,.notes-panel,.slide-container')
+          .forEach(el => el.style.display = 'none');
+        presenterEl = buildPresenterOverlay();
+        document.body.appendChild(presenterEl);
+      }
+      body.classList.toggle('presenter', presenterMode);
+
+
+      // ── Slide notes ─────────────────────────────────────────
+      // One entry per slide, matching order in the HTML.
+      // Full-script style is fine — these are private to the presenter.
+      const slideNotes = [
+        // Slide 0 — Title
+        'Welcome everyone.\n\nThis is the opening slide. Introduce yourself and the talk.\n\nUse this notes array to write everything you want to say — full sentences, reminders, transitions. Notes stay private in the presenter overlay.',
+
+        // Slide 1 — Zero Dependencies
+        'This slide establishes the core value prop.\n\nKey points:\n- One HTML file. Open it in any browser.\n- No npm install. No build step. No framework to learn.\n- Works offline — critical for conference venues with unreliable WiFi.\n\nThe three stat boxes reinforce the message visually.',
+
+        // Slide 2 — vs. Other Tools
+        'Walk through the comparison table row by row.\n\nEmphasize the "two-window sync" row — that\'s the most novel feature. Other tools need plugins or external apps. This has it built-in via BroadcastChannel.\n\nDon\'t dwell on every cell. Pick two or three rows that resonate with your audience.',
+
+        // Slide 3 — Before / After
+        'The before/after format works well for showing transformation.\n\nLeft (red): the pain. Right (green): the solution.\n\nKey line to land: "Version-controlled. Forkable. Works offline." Those three words map directly to developer values.\n\nPause after the callout bar. Let them read it.',
+
+        // Slide 4 — Get Started
+        'Closing slide. Keep it simple.\n\nQR code goes to the GitHub repo. If you don\'t have a QR code yet, replace the placeholder div with <img src="./assets/qr-repo.png">.\n\nEnd with the quick-start mantra: clone, edit, open. Three steps.\n\nTake questions.',
+      ];
+
+      const notesToggleBtn = document.querySelector('.notes-toggle');
+      const total = slides.length;
+
+
+      // ── Slug IDs & slide numbers ─────────────────────────────
+      // Each slide gets a URL-safe ID from its data-title attribute.
+      // This drives hash navigation (#zero-dependencies, etc.)
+      const slugify = (s) =>
+        s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+      slides.forEach((s, i) => {
+        if (!s.id) s.id = slugify(s.getAttribute('data-title') || `slide-${i + 1}`);
+        // Auto-fill .slide-number elements
+        const node = s.querySelector('.slide-number') ||
+          (() => { const el = document.createElement('div'); el.className = 'slide-number'; s.appendChild(el); return el; })();
+        node.textContent = `${i + 1} / ${total}`;
+      });
+
+
+      // ── Scroll state helpers ─────────────────────────────────
+      let currentIndex = 0;
+      let isAnimating  = false;
+      const lockMs     = 650; // prevents double-advance on fast keypresses
+
+      const clamp   = (i)  => Math.max(0, Math.min(slides.length - 1, i));
+
+      // Find which slide is currently most visible
+      const closest = () => {
+        const t = container.scrollTop;
+        let ci = 0, bd = Infinity;
+        for (let i = 0; i < slides.length; i++) {
+          const d = Math.abs(slides[i].offsetTop - t);
+          if (d < bd) { bd = d; ci = i; }
+        }
+        return ci;
+      };
+
+      // Update URL hash to current slide's slug
+      const updateHash = (i) => {
+        try {
+          const u = new URL(window.location.href);
+          u.hash = slides[i]?.id || '';
+          window.history.replaceState(null, '', u.toString());
+        } catch {}
+      };
+
+
+      // ── BroadcastChannel sync ────────────────────────────────
+      // Open index.html in Window A (main) and index.html?presenter=1
+      // in Window B. Advancing in either window updates both.
+      //
+      // Change 'my-talk-2026' to a unique name per talk — prevents
+      // cross-talk if you have multiple decks open.
+      let bcIgnore = false;
+      const bc = (() => {
+        try { return new BroadcastChannel('my-talk-2026'); }
+        catch { return null; }
+      })();
+
+      if (bc) {
+        bc.onmessage = (e) => {
+          if (typeof e.data?.slide === 'number') {
+            bcIgnore = true;
+            go(e.data.slide);
+            setTimeout(() => { bcIgnore = false; }, 700);
+          }
+        };
+      }
+
+
+      // ── Core navigation function ─────────────────────────────
+      const go = (i) => {
+        const ti = clamp(i);
+        isAnimating  = true;
+        currentIndex = ti;
+
+        // Broadcast to the other window (unless we received this from it)
+        if (!bcIgnore && bc) {
+          try { bc.postMessage({ slide: ti }); } catch {}
+        }
+
+        // In main view, scroll the slide into view
+        if (!presenterMode) {
+          slides[ti].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        setActive(ti);
+        updateHash(ti);
+        updatePresenterView(ti);
+
+        setTimeout(() => { isAnimating = false; }, lockMs);
+      };
+
+      // Debounced snap-to-nearest after scroll events
+      let snapId = null;
+      const snapNearest = () => {
+        if (snapId) clearTimeout(snapId);
+        snapId = setTimeout(() => { if (!isAnimating) go(closest()); }, 140);
+      };
+
+
+      // ── Presenter overlay helpers ────────────────────────────
+      const OVERLAY_STYLE = [
+        'position:fixed;top:0;left:0;width:100vw;height:100vh',
+        'background:#0a0a1e;display:flex;flex-direction:column',
+        'padding:48px 56px;font-family:Inter,sans-serif',
+        'z-index:9999;box-sizing:border-box;overflow:hidden',
+      ].join(';');
+
+      function buildPresenterOverlay() {
+        const el = document.createElement('div');
+        el.id         = 'presenter-overlay';
+        el.style.cssText = OVERLAY_STYLE;
+        el.innerHTML = `
+          <div id="presenter-meta"
+               style="font-size:0.65rem;font-weight:800;color:var(--color-primary);
+                      padding-bottom:16px;border-bottom:2px solid rgba(59,130,246,0.25);
+                      flex-shrink:0;letter-spacing:0.08em;text-transform:uppercase;"></div>
+          <div id="presenter-text"
+               style="flex:1;min-height:0;font-size:0.78rem;line-height:1.8;
+                      color:rgba(255,255,255,0.92);overflow-y:auto;
+                      margin-top:24px;padding-right:8px;white-space:pre-wrap;"></div>
+          <div id="presenter-next"
+               style="font-size:1rem;color:rgba(255,255,255,0.4);
+                      border-top:1px solid rgba(255,255,255,0.12);
+                      padding-top:16px;margin-top:20px;flex-shrink:0;"></div>
+        `;
+        return el;
+      }
+
+      // Populate the presenter overlay for slide idx
+      const updatePresenterView = (idx) => {
+        const meta = document.getElementById('presenter-meta');
+        const text = document.getElementById('presenter-text');
+        const next = document.getElementById('presenter-next');
+        if (!meta || !text) return;
+
+        const title = slides[idx]?.getAttribute('data-title') || '';
+        meta.textContent = `Slide ${idx + 1} of ${total}  —  ${title}`;
+        text.textContent = slideNotes[idx] || '(No notes for this slide.)';
+
+        if (next) {
+          const nextTitle = slides[idx + 1]?.getAttribute('data-title');
+          next.textContent = nextTitle ? `Next: ${nextTitle}` : '';
+        }
+      };
+
+      // Toggle presenter overlay on/off (N key or button click)
+      const HIDE_SELS = '.nav-rail,.nav-drawer,.nav-scrim,.notes-toggle,.notes-panel,.slide-container';
+      const togglePresenter = () => {
+        if (presenterEl) {
+          // Already exists — flip visibility
+          const showing = presenterEl.style.display !== 'none';
+          presenterEl.style.display = showing ? 'none' : 'flex';
+          document.querySelectorAll(HIDE_SELS)
+            .forEach(el => { el.style.display = showing ? '' : 'none'; });
+          if (!showing) updatePresenterView(currentIndex);
+        } else {
+          // First activation — build and insert
+          currentIndex = closest();
+          document.querySelectorAll(HIDE_SELS)
+            .forEach(el => { el.style.display = 'none'; });
+          presenterEl = buildPresenterOverlay();
+          document.body.appendChild(presenterEl);
+          updatePresenterView(currentIndex);
+        }
+      };
+
+      if (notesToggleBtn) notesToggleBtn.addEventListener('click', togglePresenter);
+
+
+      // ── Navigation drawer ────────────────────────────────────
+      const toggleButton = document.querySelector('.nav-toggle');
+      const scrim        = document.querySelector('.nav-scrim');
+      const navList      = document.getElementById('nav-list');
+      const isDesk       = () => matchMedia('(min-width:960px)').matches;
+
+      const setNav = (open) => {
+        body.classList.toggle('nav-open', open);
+        if (toggleButton) {
+          toggleButton.setAttribute('aria-expanded', open);
+          toggleButton.setAttribute('aria-label', open ? 'Close slide navigation' : 'Open slide navigation');
+        }
+        if (!open && !isDesk()) container.focus({ preventScroll: true });
+      };
+      const toggleNav = () => setNav(!body.classList.contains('nav-open'));
+
+      // Build the nav list from slide titles
+      if (navList) {
+        navList.innerHTML = '';
+        slides.forEach((s, i) => {
+          s.dataset.slideIndex = i;
+          const li  = document.createElement('li');
+          li.className = 'nav-item';
+          const btn = document.createElement('button');
+          btn.type      = 'button';
+          btn.className = 'nav-link';
+          btn.innerHTML = `<span class="idx">${i + 1}</span><span class="label"></span>`;
+          btn.querySelector('.label').textContent = s.getAttribute('data-title') || `Slide ${i + 1}`;
+          btn.addEventListener('click', () => { go(i); if (!isDesk()) setNav(false); });
+          li.appendChild(btn);
+          navList.appendChild(li);
+        });
+      }
+
+      // Highlight the active slide in the nav list
+      const setActive = (ai) => {
+        if (!navList) return;
+        navList.querySelectorAll('.nav-link').forEach((el, i) => {
+          el.setAttribute('aria-current', i === ai ? 'true' : 'false');
+        });
+      };
+
+      // rAF-throttled scroll tracker (updates nav highlight while user drags)
+      const scheduleActive = (() => {
+        let rafId = 0;
+        return () => {
+          if (rafId) return;
+          rafId = requestAnimationFrame(() => {
+            rafId = 0;
+            const i = closest();
+            currentIndex = i;
+            setActive(i);
+            updatePresenterView(i);
+            updateHash(i);
+          });
+        };
+      })();
+
+      setNav(false);
+      if (toggleButton) toggleButton.addEventListener('click', toggleNav);
+      if (scrim) scrim.addEventListener('click', () => setNav(false));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && body.classList.contains('nav-open') && !isDesk()) {
+          e.preventDefault(); setNav(false);
+        }
+      });
+
+
+      // ── Scroll & wheel handlers ──────────────────────────────
+      // Wheel: intercept and navigate slide-by-slide instead of pixel-scroll
+      container.addEventListener('wheel', (e) => {
+        if (isAnimating) { e.preventDefault(); return; }
+        if (Math.abs(e.deltaY) < 6) return;
+        e.preventDefault();
+        go(closest() + (e.deltaY > 0 ? 1 : -1));
+      }, { passive: false });
+
+      // Scroll: keep nav highlight and hash in sync during touch/trackpad scroll
+      container.addEventListener('scroll', () => {
+        snapNearest();
+        scheduleActive();
+      }, { passive: true });
+
+
+      // ── Keyboard navigation ──────────────────────────────────
+      document.addEventListener('keydown', (e) => {
+        const tag = (e.target?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+        // N — toggle presenter overlay
+        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); togglePresenter(); return; }
+
+        if (isAnimating) return;
+
+        // Determine current index (presenter overlay may be showing)
+        const ci = (presenterEl && presenterEl.style.display !== 'none')
+          ? currentIndex
+          : closest();
+
+        if      (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault(); go(ci + 1);
+        }
+        else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+          e.preventDefault(); go(ci - 1);
+        }
+        else if (e.key === 'Home') { e.preventDefault(); go(0); }
+        else if (e.key === 'End')  { e.preventDefault(); go(slides.length - 1); }
+      });
+
+
+      // ── Initial position ─────────────────────────────────────
+      // Honor ?slide=N or #slug in the URL on load.
+      requestAnimationFrame(() => {
+        if (window.location.hash) {
+          const target = document.querySelector(window.location.hash);
+          const hi     = slides.indexOf(target);
+          if (hi !== -1) { go(hi); return; }
+        }
+        try {
+          const p = new URL(window.location.href).searchParams.get('slide');
+          if (p) {
+            const n = parseInt(p, 10);
+            if (Number.isFinite(n)) { go(clamp(n - 1)); return; }
+          }
+        } catch {}
+        snapNearest();
+        updatePresenterView(closest());
+        scheduleActive();
+      });
+
+    })();
+  </script>
+</body>
+</html>

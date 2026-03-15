@@ -1,0 +1,5 @@
+node_modules/
+*.pptx
+screenshots/
+template/screenshots/
+.DS_Store
