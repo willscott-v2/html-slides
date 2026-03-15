@@ -4,7 +4,7 @@
 
 A self-contained HTML presentation framework. One file. No build step. No npm. Open `index.html` in any browser and you're presenting.
 
-[See a live example →](YOUR_URL_HERE)
+[See a live example →](https://willscott-v2.github.io/html-slides/)
 
 Built for conference talks where you want version control, full design control, and a presenter mode that actually works — without a 40-step setup.
 
@@ -16,7 +16,7 @@ The single-file structure also makes it easy to edit with AI assistants — past
 
 ```bash
 # 1. Get the template
-git clone https://github.com/you/html-slides.git
+git clone https://github.com/willscott-v2/html-slides.git
 cd html-slides/template
 
 # 2. Edit your slides
