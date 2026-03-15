@@ -4,7 +4,7 @@
 
 A self-contained HTML presentation framework. One file. No build step. No npm. Open `index.html` in any browser and you're presenting.
 
-[See a live example →](https://willscott-v2.github.io/html-slides/)
+[Quick demo (template) →](https://willscott-v2.github.io/html-slides/) &nbsp;·&nbsp; [Production example →](https://slides.searchinfluence.com/ai-seo/)
 
 Built for conference talks where you want version control, full design control, and a presenter mode that actually works — without a 40-step setup.
 
