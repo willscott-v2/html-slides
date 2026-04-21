@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Deploy the deck to S3 and invalidate CloudFront.
+#
+# Copy this file to deploy.sh, fill in the env vars below (or export them
+# in your shell / .envrc), then:
+#
+#   ./deploy.sh          # upload index.html only (fast iteration)
+#   ./deploy.sh --all    # sync all files (images, assets, CSS)
+#
+# Requires: python3, boto3 (pip install boto3), AWS credentials configured
+# (aws configure, or AWS_PROFILE / AWS_ACCESS_KEY_ID env vars).
+
+set -euo pipefail
+
+# ── Config ──────────────────────────────────────────────────────────────────
+# Set these three values for your deployment target:
+S3_BUCKET="${S3_BUCKET:?set S3_BUCKET to your bucket name, e.g. my-slides-bucket}"
+S3_PREFIX="${S3_PREFIX:?set S3_PREFIX to the path under the bucket, e.g. my-talk}"
+CF_DIST_ID="${CF_DIST_ID:?set CF_DIST_ID to your CloudFront distribution ID}"
+
+LOCAL_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "Deploying from: $LOCAL_DIR"
+echo "Target:         s3://$S3_BUCKET/$S3_PREFIX/"
+
+if [[ "${1:-}" == "--all" ]]; then
+  echo "Syncing all files..."
+  python3 - <<PY
+import boto3, mimetypes, os
+
+s3      = boto3.client('s3')
+local   = '$LOCAL_DIR'
+bucket  = '$S3_BUCKET'
+prefix  = '$S3_PREFIX'
+
+# Skip lists — adjust for your project
+skip_dirs  = {'.git', 'node_modules', 'screenshots', 'qa-screenshots', '__pycache__'}
+skip_files = {'deploy.sh', 'deploy.sh.example'}
+
+count = 0
+for root, dirs, files in os.walk(local):
+    dirs[:] = [d for d in dirs if d not in skip_dirs]
+    for f in files:
+        if f in skip_files or f.startswith('.') or f.endswith('.pptx'):
+            continue
+        local_path = os.path.join(root, f)
+        rel = os.path.relpath(local_path, local)
+        s3_key = f'{prefix}/{rel}'
+        content_type = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
+        s3.upload_file(local_path, bucket, s3_key,
+                       ExtraArgs={'ContentType': content_type, 'CacheControl': 'no-cache'})
+        print(f'  uploaded {s3_key}')
+        count += 1
+
+print(f'Uploaded {count} files.')
+PY
+  INVALIDATE_PATH="/$S3_PREFIX/*"
+else
+  echo "Uploading index.html only..."
+  python3 - <<PY
+import boto3
+s3 = boto3.client('s3')
+s3.upload_file('$LOCAL_DIR/index.html', '$S3_BUCKET', '$S3_PREFIX/index.html',
+               ExtraArgs={'ContentType': 'text/html', 'CacheControl': 'no-cache'})
+print('  uploaded $S3_PREFIX/index.html')
+PY
+  INVALIDATE_PATH="/$S3_PREFIX/index.html"
+fi
+
+echo "Invalidating CloudFront ($CF_DIST_ID)..."
+python3 - <<PY
+import boto3, time
+cf = boto3.client('cloudfront')
+resp = cf.create_invalidation(
+    DistributionId='$CF_DIST_ID',
+    InvalidationBatch={
+        'Paths': {'Quantity': 1, 'Items': ['$INVALIDATE_PATH']},
+        'CallerReference': str(int(time.time())),
+    },
+)
+print(f"  invalidation {resp['Invalidation']['Id']} — propagating (~60s)")
+PY
+
+echo "Done."

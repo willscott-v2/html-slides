@@ -146,27 +146,66 @@ Copy any existing `<section class="slide">` block. Set `data-title` to a unique 
 
 ---
 
-## Exporting to PowerPoint
+## Exporting and QA
 
-For venues that require a `.pptx` file, two scripts are included.
+Three scripts are included, all opt-in. The deck itself has zero runtime dependencies — install only what you need.
 
-**Requirements:**
+### Export to PowerPoint
+
+For venues that require a `.pptx` file:
 
 ```bash
-npm install playwright
-npx playwright install chromium
+npm install playwright && npx playwright install chromium
 pip install python-pptx
+
+# From the repo root:
+node export-screenshots.js     # captures slide_01.png, slide_02.png, ... + notes.json
+python3 build-pptx.py          # builds presentation.pptx (13.333"×7.5" widescreen)
 ```
 
-**Run:**
+The PPTX uses full-bleed 1920×1080 screenshots as slide backgrounds. Speaker notes are pulled from `slideNotes[]` in your `index.html` — `export-screenshots.js` writes them to `notes.json`, `build-pptx.py` reads them back. No second array to maintain.
+
+### Screenshot QA
+
+Catch layout problems before you present. Same Playwright dependency as above:
 
 ```bash
-# From the repo root:
-node export-screenshots.js     # captures slide_01.png, slide_02.png, ...
-python3 build-pptx.py          # builds presentation.pptx with speaker notes
+node qa-screenshots.js
 ```
 
-The PPTX uses full-bleed 1920×1080 screenshots as slide backgrounds, with your `NOTES[]` array inserted as speaker notes. Edit `NOTES` in `build-pptx.py` to match the `slideNotes[]` array in `index.html`.
+Captures each slide at 1920×1080 and writes `qa-screenshots/report.md` and `report.json` covering:
+
+- Content-escape (any element whose bounding box extends past the slide — the most common silent failure)
+- Vertical or horizontal overflow
+- Missing `data-title` (breaks nav + URL hash)
+- Slides with no entry in `slideNotes[]`
+
+The script exits non-zero if any hard failure is found — wire it into CI or a pre-commit hook if you want.
+
+### Optional: AI-assisted QA via Ollama
+
+If you have a machine running [Ollama](https://ollama.com/) with a vision model loaded, the QA script can hand each screenshot to the VLM for a second-pass review — catches readability, low contrast, and awkward typography that deterministic checks miss. Skip this section if you don't want to run Ollama; the core QA pass works fine without it.
+
+```bash
+OLLAMA_HOST=your-ollama-host:11434 VLM_MODEL=qwen2.5vl:7b node qa-screenshots.js
+```
+
+The VLM judgements append to `report.md` as a second section. If `OLLAMA_HOST` is unreachable or `VLM_MODEL` isn't loaded, the script prints a warning and completes with deterministic results only.
+
+### Deployment
+
+For S3 + CloudFront deployments, copy the example script and set three env vars:
+
+```bash
+cp template/deploy.sh.example template/deploy.sh
+export S3_BUCKET=my-slides-bucket
+export S3_PREFIX=my-talk
+export CF_DIST_ID=EXXXXXXXXXXXXX
+./template/deploy.sh          # upload index.html, invalidate that path
+./template/deploy.sh --all    # sync all assets, invalidate the whole prefix
+```
+
+Requires `pip install boto3` and AWS credentials. `template/deploy.sh` is gitignored so your config never gets committed.
 
 ---
 

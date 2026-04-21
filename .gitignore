@@ -2,5 +2,8 @@ node_modules/
 *.pptx
 screenshots/
 template/screenshots/
+qa-screenshots/
+template/deploy.sh
 .DS_Store
 PROMOTION.md
+SESSION_LOG.md

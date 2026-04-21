@@ -804,6 +804,10 @@
         'Closing slide. Keep it simple.\n\nQR code goes to the GitHub repo. If you don\'t have a QR code yet, replace the placeholder div with <img src="./assets/qr-repo.png">.\n\nEnd with the quick-start mantra: clone, edit, open. Three steps.\n\nTake questions.',
       ];
 
+      // Expose on window so external tooling (export-screenshots.js,
+      // qa-screenshots.js) can read notes without parsing the HTML source.
+      window.slideNotes = slideNotes;
+
       const notesToggleBtn = document.querySelector('.notes-toggle');
       const total = slides.length;
 
